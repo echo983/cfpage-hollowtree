@@ -326,7 +326,14 @@ async function handleLogout(): Promise<Response> {
 async function handleSearch(request: Request, env: Env): Promise<Response> {
   const session = await currentSession(request, env);
   if (!session) return json(401, { ok: false, error: "unauthorized" });
-  const payload = await request.json().catch(() => null) as { query?: string; limit?: number; vectorLimit?: number } | null;
+  const payload = await request.json().catch(() => null) as {
+    query?: string;
+    limit?: number;
+    vectorLimit?: number;
+    page?: number;
+    minRerankScore?: number;
+    bodyMode?: "all" | "inline" | "nbss";
+  } | null;
   const query = String(payload?.query || "").trim();
   if (!query) return json(400, { ok: false, error: "missing_query" });
   const upstream = await fetch(`${env.VECDOCSRV_BASE_URL}/api/v1/text-docs/search`, {
@@ -336,7 +343,10 @@ async function handleSearch(request: Request, env: Env): Promise<Response> {
       query,
       namespaceId: session.namespaceId,
       limit: payload?.limit ?? 8,
-      vectorLimit: payload?.vectorLimit ?? 30
+      vectorLimit: payload?.vectorLimit ?? 30,
+      page: payload?.page ?? 1,
+      minRerankScore: payload?.minRerankScore,
+      bodyMode: payload?.bodyMode ?? "all"
     })
   });
   const text = await upstream.text();

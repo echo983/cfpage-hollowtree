@@ -1,3 +1,13 @@
+const state = {
+  me: null,
+  query: "",
+  page: 1,
+  limit: 8,
+  bodyMode: "all",
+  minRerankScore: 0.15,
+  lastResult: null,
+};
+
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, {
     credentials: "include",
@@ -12,6 +22,23 @@ async function fetchJson(url, options = {}) {
     throw new Error(data.error || `http_${response.status}`);
   }
   return data;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function summarizeSnippet(value) {
+  const compact = String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (compact.length <= 240) {
+    return compact;
+  }
+  return `${compact.slice(0, 240).trimEnd()}...`;
 }
 
 function renderAuth(me) {
@@ -51,28 +78,42 @@ function renderResults(payload) {
         <span>rerank: ${item.rerankScore?.toFixed ? item.rerankScore.toFixed(4) : item.rerankScore}</span>
         <span>vector: ${item.score?.toFixed ? item.score.toFixed(4) : item.score}</span>
         <span>${item.meta?.createdAt || ""}</span>
-        <span>${item.nbssfid || "inline"}</span>
+        <span>${item.nbssfid ? "长文" : "短文"}</span>
       </div>
       <div class="snippet">${escapeHtml(summarizeSnippet(item.text || ""))}</div>
     </article>
   `).join("");
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
-function summarizeSnippet(value) {
-  const compact = String(value || "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (compact.length <= 240) {
-    return compact;
+function renderPagination(payload) {
+  const root = document.getElementById("pagination");
+  if (!payload || !payload.totalCount) {
+    root.classList.add("hidden");
+    root.innerHTML = "";
+    return;
   }
-  return `${compact.slice(0, 240).trimEnd()}...`;
+  const from = (payload.page - 1) * payload.limit + 1;
+  const to = from + (payload.items?.length || 0) - 1;
+  root.classList.remove("hidden");
+  root.innerHTML = `
+    <div class="meta">第 ${payload.page} 页 · 显示 ${from}-${Math.max(from, to)} / ${payload.totalCount} 条</div>
+    <div class="pagination-actions">
+      <button id="prev-page-btn" ${payload.page <= 1 ? "disabled" : ""}>上一页</button>
+      <button id="next-page-btn" ${payload.hasMore ? "" : "disabled"}>下一页</button>
+    </div>
+  `;
+  document.getElementById("prev-page-btn")?.addEventListener("click", () => {
+    if (state.page > 1) {
+      state.page -= 1;
+      runSearch();
+    }
+  });
+  document.getElementById("next-page-btn")?.addEventListener("click", () => {
+    if (payload.hasMore) {
+      state.page += 1;
+      runSearch();
+    }
+  });
 }
 
 function renderDetail(payload) {
@@ -103,26 +144,68 @@ function renderDetail(payload) {
   `;
 }
 
+function clearDetailView() {
+  const detail = document.getElementById("detail");
+  detail.classList.add("hidden");
+  detail.innerHTML = "";
+}
+
+function syncControlsFromState() {
+  document.getElementById("limit-select").value = String(state.limit);
+  document.getElementById("body-mode-select").value = state.bodyMode;
+  document.getElementById("min-score-input").value = String(state.minRerankScore);
+}
+
+function clearResultsView() {
+  document.getElementById("results").innerHTML = "";
+  document.getElementById("pagination").classList.add("hidden");
+  document.getElementById("pagination").innerHTML = "";
+}
+
 async function loadDetail(noteId, status) {
   status.textContent = "加载详情中...";
-  const detail = document.getElementById("detail");
-  const results = document.getElementById("results");
-  results.innerHTML = "";
+  clearResultsView();
   try {
     const payload = await fetchJson(`/api/notes/${encodeURIComponent(noteId)}`);
     renderDetail(payload);
     status.textContent = "详情已加载";
   } catch (error) {
+    const detail = document.getElementById("detail");
     detail.classList.remove("hidden");
     detail.innerHTML = `<div class="hero empty">加载详情失败：${escapeHtml(error.message)}</div>`;
     status.textContent = "详情加载失败";
   }
 }
 
-function clearDetailView() {
-  const detail = document.getElementById("detail");
-  detail.classList.add("hidden");
-  detail.innerHTML = "";
+async function runSearch() {
+  const status = document.getElementById("status");
+  if (!state.query) return;
+  status.textContent = "搜索中...";
+  clearDetailView();
+  const url = new URL(window.location.href);
+  url.searchParams.delete("note");
+  window.history.replaceState({}, "", url.toString());
+  try {
+    const vectorLimit = Math.min(Math.max((state.page * state.limit * 4), 30), 50);
+    const result = await fetchJson("/api/search", {
+      method: "POST",
+      body: JSON.stringify({
+        query: state.query,
+        page: state.page,
+        limit: state.limit,
+        vectorLimit,
+        minRerankScore: state.minRerankScore,
+        bodyMode: state.bodyMode,
+      }),
+    });
+    state.lastResult = result;
+    status.textContent = `命中 ${result.totalCount} 条，第 ${result.page} 页`;
+    renderResults(result);
+    renderPagination(result);
+  } catch (error) {
+    clearResultsView();
+    status.textContent = `搜索失败：${error.message}`;
+  }
 }
 
 async function boot() {
@@ -133,28 +216,53 @@ async function boot() {
   } catch {
     me = { ok: true, authenticated: false };
   }
+  state.me = me;
   renderAuth(me);
+  syncControlsFromState();
 
   const form = document.getElementById("search-form");
   const input = document.getElementById("query-input");
+  const limitSelect = document.getElementById("limit-select");
+  const bodyModeSelect = document.getElementById("body-mode-select");
+  const minScoreInput = document.getElementById("min-score-input");
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const query = input.value.trim();
     if (!query) return;
-    status.textContent = "搜索中...";
-    clearDetailView();
-    const url = new URL(window.location.href);
-    url.searchParams.delete("note");
-    window.history.replaceState({}, "", url.toString());
-    try {
-      const result = await fetchJson("/api/search", {
-        method: "POST",
-        body: JSON.stringify({ query, limit: 8, vectorLimit: 30 }),
-      });
-      status.textContent = `命中 ${result.resultCount} 条`;
-      renderResults(result);
-    } catch (error) {
-      status.textContent = `搜索失败：${error.message}`;
+    state.query = query;
+    state.page = 1;
+    state.limit = Number(limitSelect.value) || 8;
+    state.bodyMode = bodyModeSelect.value || "all";
+    state.minRerankScore = Number(minScoreInput.value);
+    if (!Number.isFinite(state.minRerankScore) || state.minRerankScore < 0) {
+      state.minRerankScore = 0.15;
+    }
+    await runSearch();
+  });
+
+  limitSelect.addEventListener("change", async () => {
+    state.limit = Number(limitSelect.value) || 8;
+    state.page = 1;
+    if (state.query) {
+      await runSearch();
+    }
+  });
+
+  bodyModeSelect.addEventListener("change", async () => {
+    state.bodyMode = bodyModeSelect.value || "all";
+    state.page = 1;
+    if (state.query) {
+      await runSearch();
+    }
+  });
+
+  minScoreInput.addEventListener("change", async () => {
+    const value = Number(minScoreInput.value);
+    state.minRerankScore = Number.isFinite(value) && value >= 0 ? value : 0.15;
+    state.page = 1;
+    if (state.query) {
+      await runSearch();
     }
   });
 
