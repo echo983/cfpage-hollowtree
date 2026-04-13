@@ -346,6 +346,20 @@ async function handleSearch(request: Request, env: Env): Promise<Response> {
   });
 }
 
+async function handleNoteDetail(request: Request, env: Env, id: string): Promise<Response> {
+  const session = await currentSession(request, env);
+  if (!session) return json(401, { ok: false, error: "unauthorized" });
+
+  const upstream = await fetch(
+    `${env.VECDOCSRV_BASE_URL}/api/v1/text-docs/${encodeURIComponent(id)}?namespaceId=${encodeURIComponent(session.namespaceId)}&hydrateBody=true`
+  );
+  const text = await upstream.text();
+  return new Response(text, {
+    status: upstream.status,
+    headers: { "content-type": "application/json; charset=utf-8" }
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -367,6 +381,10 @@ export default {
       }
       if (request.method === "POST" && url.pathname === "/api/search") {
         return handleSearch(request, env);
+      }
+      const noteMatch = url.pathname.match(/^\/api\/notes\/([^/]+)$/);
+      if (noteMatch && request.method === "GET") {
+        return handleNoteDetail(request, env, decodeURIComponent(noteMatch[1]));
       }
       return env.ASSETS.fetch(request);
     } catch (error) {

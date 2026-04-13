@@ -46,7 +46,7 @@ function renderResults(payload) {
   }
   root.innerHTML = items.map((item) => `
     <article class="result-card">
-      <h2>${item.meta?.title || item.meta?.sourceId || item.id}</h2>
+      <h2><a href="/?note=${encodeURIComponent(item.id)}">${escapeHtml(item.meta?.title || item.meta?.sourceId || item.id)}</a></h2>
       <div class="score-row">
         <span>rerank: ${item.rerankScore?.toFixed ? item.rerankScore.toFixed(4) : item.rerankScore}</span>
         <span>vector: ${item.score?.toFixed ? item.score.toFixed(4) : item.score}</span>
@@ -65,6 +65,50 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;");
 }
 
+function renderDetail(payload) {
+  const root = document.getElementById("detail");
+  const item = payload.item;
+  if (!item) {
+    root.classList.remove("hidden");
+    root.innerHTML = `<div class="hero empty">没有找到这条笔记</div>`;
+    return;
+  }
+  root.classList.remove("hidden");
+  root.innerHTML = `
+    <div class="detail-header">
+      <div>
+        <h2 class="detail-title">${escapeHtml(item.meta?.title || item.meta?.sourceId || item.id)}</h2>
+        <div class="detail-meta">
+          <span>${escapeHtml(item.meta?.createdAt || "")}</span>
+          <span>${escapeHtml(item.meta?.sourceType || "")}</span>
+          <span>${escapeHtml(item.nbssfid || "inline")}</span>
+          <span>${escapeHtml(item.bodySource || "inline")}</span>
+        </div>
+      </div>
+      <div class="detail-actions">
+        <a href="/">返回搜索</a>
+      </div>
+    </div>
+    <div class="detail-body">${escapeHtml(item.bodyText || item.text || "")}</div>
+  `;
+}
+
+async function loadDetail(noteId, status) {
+  status.textContent = "加载详情中...";
+  const detail = document.getElementById("detail");
+  const results = document.getElementById("results");
+  results.innerHTML = "";
+  try {
+    const payload = await fetchJson(`/api/notes/${encodeURIComponent(noteId)}`);
+    renderDetail(payload);
+    status.textContent = "详情已加载";
+  } catch (error) {
+    detail.classList.remove("hidden");
+    detail.innerHTML = `<div class="hero empty">加载详情失败：${escapeHtml(error.message)}</div>`;
+    status.textContent = "详情加载失败";
+  }
+}
+
 async function boot() {
   const status = document.getElementById("status");
   let me = null;
@@ -74,6 +118,13 @@ async function boot() {
     me = { ok: true, authenticated: false };
   }
   renderAuth(me);
+
+  const url = new URL(window.location.href);
+  const noteId = url.searchParams.get("note");
+  if (noteId) {
+    await loadDetail(noteId, status);
+    return;
+  }
 
   const form = document.getElementById("search-form");
   const input = document.getElementById("query-input");
