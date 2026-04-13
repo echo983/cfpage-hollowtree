@@ -119,6 +119,12 @@ async function loadDetail(noteId, status) {
   }
 }
 
+function clearDetailView() {
+  const detail = document.getElementById("detail");
+  detail.classList.add("hidden");
+  detail.innerHTML = "";
+}
+
 async function boot() {
   const status = document.getElementById("status");
   let me = null;
@@ -129,13 +135,6 @@ async function boot() {
   }
   renderAuth(me);
 
-  const url = new URL(window.location.href);
-  const noteId = url.searchParams.get("note");
-  if (noteId) {
-    await loadDetail(noteId, status);
-    return;
-  }
-
   const form = document.getElementById("search-form");
   const input = document.getElementById("query-input");
   form.addEventListener("submit", async (event) => {
@@ -143,6 +142,10 @@ async function boot() {
     const query = input.value.trim();
     if (!query) return;
     status.textContent = "搜索中...";
+    clearDetailView();
+    const url = new URL(window.location.href);
+    url.searchParams.delete("note");
+    window.history.replaceState({}, "", url.toString());
     try {
       const result = await fetchJson("/api/search", {
         method: "POST",
@@ -154,6 +157,13 @@ async function boot() {
       status.textContent = `搜索失败：${error.message}`;
     }
   });
+
+  const url = new URL(window.location.href);
+  const noteId = url.searchParams.get("note");
+  if (noteId) {
+    await loadDetail(noteId, status);
+    return;
+  }
 }
 
 boot();
