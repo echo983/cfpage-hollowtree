@@ -53,7 +53,7 @@ function renderResults(payload) {
         <span>${item.meta?.createdAt || ""}</span>
         <span>${item.nbssfid || "inline"}</span>
       </div>
-      <div class="snippet">${escapeHtml(item.text || "")}</div>
+      <div class="snippet">${escapeHtml(summarizeSnippet(item.text || ""))}</div>
     </article>
   `).join("");
 }
@@ -63,6 +63,16 @@ function escapeHtml(value) {
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+}
+
+function summarizeSnippet(value) {
+  const compact = String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (compact.length <= 240) {
+    return compact;
+  }
+  return `${compact.slice(0, 240).trimEnd()}...`;
 }
 
 function renderDetail(payload) {
