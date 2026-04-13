@@ -47,7 +47,10 @@ const STATE_COOKIE = "note_search_oauth_state";
 function json(status: number, payload: JsonRecord): Response {
   return new Response(JSON.stringify(payload, null, 2), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" }
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store"
+    }
   });
 }
 
@@ -354,7 +357,10 @@ async function handleSearch(request: Request, env: Env): Promise<Response> {
   const text = await upstream.text();
   return new Response(text, {
     status: upstream.status,
-    headers: { "content-type": "application/json; charset=utf-8" }
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store"
+    }
   });
 }
 
@@ -376,7 +382,10 @@ async function handleRecentNotes(request: Request, env: Env): Promise<Response> 
   const text = await upstream.text();
   return new Response(text, {
     status: upstream.status,
-    headers: { "content-type": "application/json; charset=utf-8" }
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store"
+    }
   });
 }
 
@@ -402,7 +411,10 @@ async function handleCreateNote(request: Request, env: Env): Promise<Response> {
   const text = await upstream.text();
   return new Response(text, {
     status: upstream.status,
-    headers: { "content-type": "application/json; charset=utf-8" }
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store"
+    }
   });
 }
 
@@ -425,7 +437,10 @@ async function handleAutoCreateNote(request: Request, env: Env): Promise<Respons
   const text = await upstream.text();
   return new Response(text, {
     status: upstream.status,
-    headers: { "content-type": "application/json; charset=utf-8" }
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store"
+    }
   });
 }
 
@@ -444,7 +459,10 @@ async function handleNoteDetail(request: Request, env: Env, id: string): Promise
   const text = await upstream.text();
   return new Response(text, {
     status: upstream.status,
-    headers: { "content-type": "application/json; charset=utf-8" }
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store"
+    }
   });
 }
 

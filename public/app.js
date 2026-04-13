@@ -113,6 +113,11 @@ function syncViewSwitch() {
   document.getElementById("recent-view-btn")?.classList.toggle("active", state.view === "recent");
 }
 
+function setDebugStatus(message = "") {
+  const root = document.getElementById("debug-status");
+  root.textContent = message;
+}
+
 function renderAuth(me) {
   const area = document.getElementById("auth-area");
   if (!me || !me.ok || !me.authenticated) {
@@ -143,7 +148,12 @@ function renderResults(payload) {
     root.innerHTML = `<div class="hero empty">没有结果</div>`;
     return;
   }
-  root.innerHTML = items.map((item) => `
+  root.innerHTML = `
+    <div class="results-header">
+      <strong>搜索结果</strong>
+      <span class="meta">${items.length} 条</span>
+    </div>
+    ${items.map((item) => `
     <article class="result-card">
       <h2><a href="/?note=${encodeURIComponent(item.id)}">${escapeHtml(item.meta?.title || item.meta?.sourceId || item.id)}</a></h2>
       <div class="score-row">
@@ -155,7 +165,8 @@ function renderResults(payload) {
       ${renderTags(item.meta?.tags, true)}
       <div class="snippet">${escapeHtml(summarizeSnippet(item.text || ""))}</div>
     </article>
-  `).join("");
+  `).join("")}
+  `;
   bindTagFilters(root);
 }
 
@@ -166,7 +177,12 @@ function renderRecentResults(payload) {
     root.innerHTML = `<div class="hero empty">最近还没有笔记</div>`;
     return;
   }
-  root.innerHTML = items.map((item) => `
+  root.innerHTML = `
+    <div class="results-header">
+      <strong>最近笔记</strong>
+      <span class="meta">${items.length} 条</span>
+    </div>
+    ${items.map((item) => `
     <article class="result-card">
       <h2><a href="/?note=${encodeURIComponent(item.id)}">${escapeHtml(item.meta?.title || item.meta?.sourceId || item.id)}</a></h2>
       <div class="score-row">
@@ -177,7 +193,8 @@ function renderRecentResults(payload) {
       ${renderTags(item.meta?.tags, true)}
       <div class="snippet">${escapeHtml(summarizeSnippet(item.text || ""))}</div>
     </article>
-  `).join("");
+  `).join("")}
+  `;
   bindTagFilters(root);
 }
 
@@ -294,6 +311,10 @@ function clearResultsView() {
   renderActiveFilters();
 }
 
+function scrollResultsIntoView() {
+  document.getElementById("results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 async function loadDetail(noteId, status) {
   status.textContent = "加载详情中...";
   clearResultsView();
@@ -311,6 +332,7 @@ async function loadDetail(noteId, status) {
 
 async function runSearch() {
   const status = document.getElementById("status");
+  setDebugStatus("");
   if (!state.query) return;
   status.textContent = "搜索中...";
   clearDetailView();
@@ -337,6 +359,7 @@ async function runSearch() {
     renderActiveFilters();
     renderResults(result);
     renderPagination(result);
+    scrollResultsIntoView();
   } catch (error) {
     clearResultsView();
     status.textContent = `搜索失败：${error.message}`;
@@ -346,6 +369,7 @@ async function runSearch() {
 async function runRecent() {
   const status = document.getElementById("status");
   status.textContent = "加载最近笔记中...";
+  setDebugStatus("");
   clearDetailView();
   const url = new URL(window.location.href);
   url.searchParams.delete("note");
@@ -360,14 +384,18 @@ async function runRecent() {
     for (const tag of state.activeTags) {
       requestUrl.searchParams.append("tag", tag);
     }
-    const result = await fetchJson(requestUrl.toString(), { method: "GET" });
+    const result = await fetchJson(requestUrl.toString(), { method: "GET", cache: "no-store" });
     state.recentHasMore = Boolean(result.hasMore);
     state.recentNextCursor = result.nextCursor || null;
     const suffix = state.activeTags.length ? `，标签：${state.activeTags.join(" / ")}` : "";
     status.textContent = `最近笔记 ${result.items?.length || 0} 条${suffix}`;
+    setDebugStatus(
+      `ns=${state.me?.namespaceId || ""} | recent url=${requestUrl.pathname}${requestUrl.search} | titles=${(result.items || []).map((item) => item?.meta?.title || item?.id).join(" | ")}`
+    );
     renderActiveFilters();
     renderRecentResults(result);
     renderRecentPagination(result);
+    scrollResultsIntoView();
   } catch (error) {
     clearResultsView();
     status.textContent = `最近笔记加载失败：${error.message}`;
