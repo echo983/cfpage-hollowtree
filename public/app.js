@@ -5,6 +5,7 @@ const state = {
   limit: 8,
   bodyMode: "all",
   minRerankScore: 0.15,
+  activeTags: [],
   lastResult: null,
 };
 
@@ -39,6 +40,55 @@ function summarizeSnippet(value) {
     return compact;
   }
   return `${compact.slice(0, 240).trimEnd()}...`;
+}
+
+function renderTags(tags, clickable = false) {
+  const items = Array.isArray(tags) ? tags.filter((item) => typeof item === "string" && item.trim()) : [];
+  if (!items.length) {
+    return "";
+  }
+  return `<div class="tag-row">${items.map((tag) => {
+    const active = state.activeTags.includes(tag);
+    const className = `tag${active ? " active" : ""}${clickable ? " tag-filter" : ""}`;
+    if (!clickable) {
+      return `<span class="${className}">${escapeHtml(tag)}</span>`;
+    }
+    return `<button type="button" class="${className}" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</button>`;
+  }).join("")}</div>`;
+}
+
+function bindTagFilters(root) {
+  root.querySelectorAll("[data-tag]").forEach((node) => {
+    node.addEventListener("click", async () => {
+      const tag = node.getAttribute("data-tag");
+      if (!tag) return;
+      state.activeTags = [tag];
+      state.page = 1;
+      await runSearch();
+    });
+  });
+}
+
+function renderActiveFilters() {
+  const root = document.getElementById("active-filters");
+  if (!state.activeTags.length) {
+    root.classList.add("hidden");
+    root.innerHTML = "";
+    return;
+  }
+  root.classList.remove("hidden");
+  root.innerHTML = `
+    <div class="filter-bar">
+      <span class="meta">标签过滤</span>
+      ${renderTags(state.activeTags)}
+      <button type="button" id="clear-tag-filter-btn" class="clear-filter-btn">清除</button>
+    </div>
+  `;
+  document.getElementById("clear-tag-filter-btn")?.addEventListener("click", async () => {
+    state.activeTags = [];
+    state.page = 1;
+    await runSearch();
+  });
 }
 
 function renderAuth(me) {
@@ -80,9 +130,11 @@ function renderResults(payload) {
         <span>${item.meta?.createdAt || ""}</span>
         <span>${item.nbssfid ? "长文" : "短文"}</span>
       </div>
+      ${renderTags(item.meta?.tags, true)}
       <div class="snippet">${escapeHtml(summarizeSnippet(item.text || ""))}</div>
     </article>
   `).join("");
+  bindTagFilters(root);
 }
 
 function renderPagination(payload) {
@@ -135,6 +187,7 @@ function renderDetail(payload) {
           <span>${escapeHtml(item.nbssfid || "inline")}</span>
           <span>${escapeHtml(item.bodySource || "inline")}</span>
         </div>
+        ${renderTags(item.meta?.tags, true)}
       </div>
       <div class="detail-actions">
         <a href="/">返回搜索</a>
@@ -142,6 +195,7 @@ function renderDetail(payload) {
     </div>
     <div class="detail-body">${escapeHtml(item.bodyText || item.text || "")}</div>
   `;
+  bindTagFilters(root);
 }
 
 function clearDetailView() {
@@ -160,6 +214,7 @@ function clearResultsView() {
   document.getElementById("results").innerHTML = "";
   document.getElementById("pagination").classList.add("hidden");
   document.getElementById("pagination").innerHTML = "";
+  renderActiveFilters();
 }
 
 async function loadDetail(noteId, status) {
@@ -192,14 +247,17 @@ async function runSearch() {
       body: JSON.stringify({
         query: state.query,
         page: state.page,
-        limit: state.limit,
-        vectorLimit,
-        minRerankScore: state.minRerankScore,
-        bodyMode: state.bodyMode,
+      limit: state.limit,
+      vectorLimit,
+      minRerankScore: state.minRerankScore,
+      bodyMode: state.bodyMode,
+      tags: state.activeTags,
       }),
     });
     state.lastResult = result;
-    status.textContent = `命中 ${result.totalCount} 条，第 ${result.page} 页`;
+    const suffix = state.activeTags.length ? `，标签：${state.activeTags.join(" / ")}` : "";
+    status.textContent = `命中 ${result.totalCount} 条，第 ${result.page} 页${suffix}`;
+    renderActiveFilters();
     renderResults(result);
     renderPagination(result);
   } catch (error) {
@@ -248,6 +306,40 @@ async function createNote() {
   }
 }
 
+async function createAutoNote() {
+  const status = document.getElementById("status");
+  const bodyInput = document.getElementById("auto-body-input");
+  const body = bodyInput.value.trim();
+  if (!body) {
+    status.textContent = "请先填写正文";
+    return;
+  }
+
+  status.textContent = "生成标题和标签中...";
+  try {
+    const payload = await fetchJson("/api/notes/auto", {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    });
+    bodyInput.value = "";
+    const item = payload.item;
+    if (item?.id) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("note", item.id);
+      window.history.replaceState({}, "", url.toString());
+      clearResultsView();
+      clearDetailView();
+      renderDetail({ item });
+      const tags = Array.isArray(item.meta?.tags) && item.meta.tags.length ? `，标签 ${item.meta.tags.length} 个` : "";
+      status.textContent = `半自动笔记已保存${tags}`;
+      return;
+    }
+    status.textContent = "半自动笔记已保存";
+  } catch (error) {
+    status.textContent = `生成失败：${error.message}`;
+  }
+}
+
 async function boot() {
   const status = document.getElementById("status");
   let me = null;
@@ -262,14 +354,21 @@ async function boot() {
 
   const form = document.getElementById("search-form");
   const createForm = document.getElementById("create-form");
+  const autoCreateForm = document.getElementById("auto-create-form");
   const input = document.getElementById("query-input");
   const limitSelect = document.getElementById("limit-select");
   const bodyModeSelect = document.getElementById("body-mode-select");
   const minScoreInput = document.getElementById("min-score-input");
+  renderActiveFilters();
 
   createForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     await createNote();
+  });
+
+  autoCreateForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await createAutoNote();
   });
 
   form.addEventListener("submit", async (event) => {

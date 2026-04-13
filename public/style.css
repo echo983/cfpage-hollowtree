@@ -76,6 +76,10 @@ h1 {
   padding-bottom: 18px;
   border-bottom: 1px solid var(--line);
 }
+.auto-create-form {
+  border-top: 1px dashed var(--line);
+  padding-top: 18px;
+}
 .create-form-header h2 {
   margin: 0 0 4px;
   font-size: 22px;
@@ -109,7 +113,7 @@ h1 {
   padding: 12px 16px;
   font-size: 16px;
 }
-#title-input, #body-input {
+#title-input, #body-input, #auto-body-input {
   border: 1px solid var(--line);
   background: #fff;
   border-radius: 14px;
@@ -117,7 +121,7 @@ h1 {
   font-size: 15px;
   color: var(--text);
 }
-#body-input {
+#body-input, #auto-body-input {
   min-height: 180px;
   resize: vertical;
   font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
@@ -187,6 +191,46 @@ h1 {
   white-space: pre-wrap;
   line-height: 1.5;
 }
+.active-filters {
+  margin-top: 14px;
+}
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(143, 61, 36, 0.08);
+  border: 1px solid rgba(143, 61, 36, 0.15);
+  color: var(--accent);
+  font-size: 13px;
+}
+.tag-filter,
+.clear-filter-btn {
+  appearance: none;
+  background: rgba(143, 61, 36, 0.08);
+  color: var(--accent);
+  border: 1px solid rgba(143, 61, 36, 0.15);
+  box-shadow: none;
+  padding: 4px 10px;
+  font-weight: 500;
+}
+.tag.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+  border-color: transparent;
+}
 .detail {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -220,7 +264,7 @@ h1 {
   flex-wrap: wrap;
   color: var(--muted);
   font-size: 14px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 .detail-body {
   white-space: pre-wrap;

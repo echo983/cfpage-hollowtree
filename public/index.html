@@ -29,6 +29,17 @@
           </div>
         </form>
 
+        <form id="auto-create-form" class="create-form auto-create-form">
+          <div class="create-form-header">
+            <h2>半自动笔记</h2>
+            <p class="muted">只填正文，系统自动生成标题和标签后保存到当前 namespace。</p>
+          </div>
+          <textarea id="auto-body-input" name="body" placeholder="正文"></textarea>
+          <div class="create-actions">
+            <button type="submit">生成并保存</button>
+          </div>
+        </form>
+
         <form id="search-form">
           <input id="query-input" name="query" type="text" placeholder="输入关键词，例如：西班牙语动词变位" autocomplete="off" />
           <button type="submit">搜索</button>
@@ -56,6 +67,7 @@
           </label>
         </div>
         <div id="status" class="status"></div>
+        <div id="active-filters" class="active-filters hidden"></div>
       </section>
 
       <section id="detail" class="detail hidden"></section>

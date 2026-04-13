@@ -333,6 +333,7 @@ async function handleSearch(request: Request, env: Env): Promise<Response> {
     page?: number;
     minRerankScore?: number;
     bodyMode?: "all" | "inline" | "nbss";
+    tags?: string[];
   } | null;
   const query = String(payload?.query || "").trim();
   if (!query) return json(400, { ok: false, error: "missing_query" });
@@ -346,7 +347,8 @@ async function handleSearch(request: Request, env: Env): Promise<Response> {
       vectorLimit: payload?.vectorLimit ?? 30,
       page: payload?.page ?? 1,
       minRerankScore: payload?.minRerankScore,
-      bodyMode: payload?.bodyMode ?? "all"
+      bodyMode: payload?.bodyMode ?? "all",
+      tags: Array.isArray(payload?.tags) ? payload?.tags : []
     })
   });
   const text = await upstream.text();
@@ -372,6 +374,29 @@ async function handleCreateNote(request: Request, env: Env): Promise<Response> {
     body: JSON.stringify({
       namespaceId: session.namespaceId,
       title,
+      body
+    })
+  });
+  const text = await upstream.text();
+  return new Response(text, {
+    status: upstream.status,
+    headers: { "content-type": "application/json; charset=utf-8" }
+  });
+}
+
+async function handleAutoCreateNote(request: Request, env: Env): Promise<Response> {
+  const session = await currentSession(request, env);
+  if (!session) return json(401, { ok: false, error: "unauthorized" });
+
+  const payload = await request.json().catch(() => null) as { body?: string } | null;
+  const body = typeof payload?.body === "string" ? payload.body.trim() : "";
+  if (!body) return json(400, { ok: false, error: "missing_body" });
+
+  const upstream = await fetch(`${env.VECDOCSRV_BASE_URL}/api/v1/text-docs/auto`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      namespaceId: session.namespaceId,
       body
     })
   });
@@ -425,6 +450,9 @@ export default {
       }
       if (request.method === "POST" && url.pathname === "/api/notes") {
         return handleCreateNote(request, env);
+      }
+      if (request.method === "POST" && url.pathname === "/api/notes/auto") {
+        return handleAutoCreateNote(request, env);
       }
       const noteMatch = url.pathname.match(/^\/api\/notes\/([^/]+)$/);
       if (noteMatch && request.method === "GET") {
