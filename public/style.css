@@ -69,6 +69,22 @@ h1 {
   padding: 18px;
   margin-bottom: 20px;
 }
+.view-switch {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.secondary-btn {
+  background: rgba(63, 52, 43, 0.08);
+  color: var(--text);
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+.secondary-btn.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+  border-color: transparent;
+}
 .create-form {
   display: grid;
   gap: 12px;
@@ -294,6 +310,9 @@ h1 {
   .search-controls {
     flex-direction: column;
     align-items: stretch;
+  }
+  .view-switch {
+    flex-direction: column;
   }
   .search-controls label {
     justify-content: space-between;

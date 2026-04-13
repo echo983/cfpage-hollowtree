@@ -1,5 +1,6 @@
 const state = {
   me: null,
+  view: "search",
   query: "",
   page: 1,
   limit: 8,
@@ -7,6 +8,10 @@ const state = {
   minRerankScore: 0.15,
   activeTags: [],
   lastResult: null,
+  recentCursor: null,
+  recentCursorStack: [],
+  recentHasMore: false,
+  recentNextCursor: null,
 };
 
 async function fetchJson(url, options = {}) {
@@ -63,6 +68,12 @@ function bindTagFilters(root) {
       const tag = node.getAttribute("data-tag");
       if (!tag) return;
       state.activeTags = [tag];
+      if (state.view === "recent") {
+        state.recentCursor = null;
+        state.recentCursorStack = [];
+        await runRecent();
+        return;
+      }
       state.page = 1;
       await runSearch();
     });
@@ -86,9 +97,20 @@ function renderActiveFilters() {
   `;
   document.getElementById("clear-tag-filter-btn")?.addEventListener("click", async () => {
     state.activeTags = [];
+    if (state.view === "recent") {
+      state.recentCursor = null;
+      state.recentCursorStack = [];
+      await runRecent();
+      return;
+    }
     state.page = 1;
     await runSearch();
   });
+}
+
+function syncViewSwitch() {
+  document.getElementById("search-view-btn")?.classList.toggle("active", state.view === "search");
+  document.getElementById("recent-view-btn")?.classList.toggle("active", state.view === "recent");
 }
 
 function renderAuth(me) {
@@ -137,6 +159,28 @@ function renderResults(payload) {
   bindTagFilters(root);
 }
 
+function renderRecentResults(payload) {
+  const root = document.getElementById("results");
+  const items = payload.items || [];
+  if (!items.length) {
+    root.innerHTML = `<div class="hero empty">最近还没有笔记</div>`;
+    return;
+  }
+  root.innerHTML = items.map((item) => `
+    <article class="result-card">
+      <h2><a href="/?note=${encodeURIComponent(item.id)}">${escapeHtml(item.meta?.title || item.meta?.sourceId || item.id)}</a></h2>
+      <div class="score-row">
+        <span>${item.meta?.createdAt || ""}</span>
+        <span>${item.meta?.sourceType || ""}</span>
+        <span>${item.nbssfid ? "长文" : "短文"}</span>
+      </div>
+      ${renderTags(item.meta?.tags, true)}
+      <div class="snippet">${escapeHtml(summarizeSnippet(item.text || ""))}</div>
+    </article>
+  `).join("");
+  bindTagFilters(root);
+}
+
 function renderPagination(payload) {
   const root = document.getElementById("pagination");
   if (!payload || !payload.totalCount) {
@@ -165,6 +209,39 @@ function renderPagination(payload) {
       state.page += 1;
       runSearch();
     }
+  });
+}
+
+function renderRecentPagination(payload) {
+  const root = document.getElementById("pagination");
+  const items = payload.items || [];
+  if (!items.length) {
+    root.classList.add("hidden");
+    root.innerHTML = "";
+    return;
+  }
+  root.classList.remove("hidden");
+  root.innerHTML = `
+    <div class="meta">显示最近 ${items.length} 条</div>
+    <div class="pagination-actions">
+      <button id="prev-page-btn" ${state.recentCursorStack.length ? "" : "disabled"}>上一页</button>
+      <button id="next-page-btn" ${payload.hasMore ? "" : "disabled"}>下一页</button>
+    </div>
+  `;
+  document.getElementById("prev-page-btn")?.addEventListener("click", async () => {
+    if (!state.recentCursorStack.length) {
+      return;
+    }
+    state.recentCursor = state.recentCursorStack.pop() || null;
+    await runRecent();
+  });
+  document.getElementById("next-page-btn")?.addEventListener("click", async () => {
+    if (!payload.hasMore || !payload.nextCursor) {
+      return;
+    }
+    state.recentCursorStack.push(state.recentCursor);
+    state.recentCursor = payload.nextCursor;
+    await runRecent();
   });
 }
 
@@ -266,6 +343,37 @@ async function runSearch() {
   }
 }
 
+async function runRecent() {
+  const status = document.getElementById("status");
+  status.textContent = "加载最近笔记中...";
+  clearDetailView();
+  const url = new URL(window.location.href);
+  url.searchParams.delete("note");
+  window.history.replaceState({}, "", url.toString());
+
+  try {
+    const requestUrl = new URL("/api/notes/recent", window.location.origin);
+    requestUrl.searchParams.set("limit", String(state.limit));
+    if (state.recentCursor) {
+      requestUrl.searchParams.set("cursor", state.recentCursor);
+    }
+    for (const tag of state.activeTags) {
+      requestUrl.searchParams.append("tag", tag);
+    }
+    const result = await fetchJson(requestUrl.toString(), { method: "GET" });
+    state.recentHasMore = Boolean(result.hasMore);
+    state.recentNextCursor = result.nextCursor || null;
+    const suffix = state.activeTags.length ? `，标签：${state.activeTags.join(" / ")}` : "";
+    status.textContent = `最近笔记 ${result.items?.length || 0} 条${suffix}`;
+    renderActiveFilters();
+    renderRecentResults(result);
+    renderRecentPagination(result);
+  } catch (error) {
+    clearResultsView();
+    status.textContent = `最近笔记加载失败：${error.message}`;
+  }
+}
+
 async function createNote() {
   const status = document.getElementById("status");
   const titleInput = document.getElementById("title-input");
@@ -359,7 +467,10 @@ async function boot() {
   const limitSelect = document.getElementById("limit-select");
   const bodyModeSelect = document.getElementById("body-mode-select");
   const minScoreInput = document.getElementById("min-score-input");
+  const searchViewBtn = document.getElementById("search-view-btn");
+  const recentViewBtn = document.getElementById("recent-view-btn");
   renderActiveFilters();
+  syncViewSwitch();
 
   createForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -386,9 +497,34 @@ async function boot() {
     await runSearch();
   });
 
+  searchViewBtn.addEventListener("click", async () => {
+    state.view = "search";
+    syncViewSwitch();
+    if (state.query) {
+      await runSearch();
+      return;
+    }
+    clearResultsView();
+    status.textContent = "已切换到搜索视图";
+  });
+
+  recentViewBtn.addEventListener("click", async () => {
+    state.view = "recent";
+    state.recentCursor = null;
+    state.recentCursorStack = [];
+    syncViewSwitch();
+    await runRecent();
+  });
+
   limitSelect.addEventListener("change", async () => {
     state.limit = Number(limitSelect.value) || 8;
     state.page = 1;
+    if (state.view === "recent") {
+      state.recentCursor = null;
+      state.recentCursorStack = [];
+      await runRecent();
+      return;
+    }
     if (state.query) {
       await runSearch();
     }

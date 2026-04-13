@@ -358,6 +358,28 @@ async function handleSearch(request: Request, env: Env): Promise<Response> {
   });
 }
 
+async function handleRecentNotes(request: Request, env: Env): Promise<Response> {
+  const session = await currentSession(request, env);
+  if (!session) return json(401, { ok: false, error: "unauthorized" });
+
+  const url = new URL(request.url);
+  const upstreamUrl = new URL(`${env.VECDOCSRV_BASE_URL}/api/v1/text-docs/recent`);
+  upstreamUrl.searchParams.set("namespaceId", session.namespaceId);
+  upstreamUrl.searchParams.set("limit", url.searchParams.get("limit") || "20");
+  const cursor = url.searchParams.get("cursor");
+  if (cursor) upstreamUrl.searchParams.set("cursor", cursor);
+  for (const tag of url.searchParams.getAll("tag")) {
+    upstreamUrl.searchParams.append("tag", tag);
+  }
+
+  const upstream = await fetch(upstreamUrl.toString(), { method: "GET" });
+  const text = await upstream.text();
+  return new Response(text, {
+    status: upstream.status,
+    headers: { "content-type": "application/json; charset=utf-8" }
+  });
+}
+
 async function handleCreateNote(request: Request, env: Env): Promise<Response> {
   const session = await currentSession(request, env);
   if (!session) return json(401, { ok: false, error: "unauthorized" });
@@ -447,6 +469,9 @@ export default {
       }
       if (request.method === "POST" && url.pathname === "/api/search") {
         return handleSearch(request, env);
+      }
+      if (request.method === "GET" && url.pathname === "/api/notes/recent") {
+        return handleRecentNotes(request, env);
       }
       if (request.method === "POST" && url.pathname === "/api/notes") {
         return handleCreateNote(request, env);
