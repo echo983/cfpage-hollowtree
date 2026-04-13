@@ -17,6 +17,18 @@
       </header>
 
       <section class="search-panel">
+        <form id="create-form" class="create-form">
+          <div class="create-form-header">
+            <h2>新建笔记</h2>
+            <p class="muted">写入当前账号绑定的 namespace，写完后可立即搜索和查看详情。</p>
+          </div>
+          <input id="title-input" name="title" type="text" placeholder="标题" autocomplete="off" />
+          <textarea id="body-input" name="body" placeholder="正文"></textarea>
+          <div class="create-actions">
+            <button type="submit">保存笔记</button>
+          </div>
+        </form>
+
         <form id="search-form">
           <input id="query-input" name="query" type="text" placeholder="输入关键词，例如：西班牙语动词变位" autocomplete="off" />
           <button type="submit">搜索</button>

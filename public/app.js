@@ -208,6 +208,46 @@ async function runSearch() {
   }
 }
 
+async function createNote() {
+  const status = document.getElementById("status");
+  const titleInput = document.getElementById("title-input");
+  const bodyInput = document.getElementById("body-input");
+  const title = titleInput.value.trim();
+  const body = bodyInput.value.trim();
+  if (!title) {
+    status.textContent = "请先填写标题";
+    return;
+  }
+  if (!body) {
+    status.textContent = "请先填写正文";
+    return;
+  }
+
+  status.textContent = "写入笔记中...";
+  try {
+    const payload = await fetchJson("/api/notes", {
+      method: "POST",
+      body: JSON.stringify({ title, body }),
+    });
+    titleInput.value = "";
+    bodyInput.value = "";
+    const item = payload.item;
+    if (item?.id) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("note", item.id);
+      window.history.replaceState({}, "", url.toString());
+      clearResultsView();
+      clearDetailView();
+      renderDetail({ item });
+      status.textContent = "笔记已保存";
+      return;
+    }
+    status.textContent = "笔记已保存";
+  } catch (error) {
+    status.textContent = `写入失败：${error.message}`;
+  }
+}
+
 async function boot() {
   const status = document.getElementById("status");
   let me = null;
@@ -221,10 +261,16 @@ async function boot() {
   syncControlsFromState();
 
   const form = document.getElementById("search-form");
+  const createForm = document.getElementById("create-form");
   const input = document.getElementById("query-input");
   const limitSelect = document.getElementById("limit-select");
   const bodyModeSelect = document.getElementById("body-mode-select");
   const minScoreInput = document.getElementById("min-score-input");
+
+  createForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await createNote();
+  });
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();

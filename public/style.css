@@ -69,6 +69,20 @@ h1 {
   padding: 18px;
   margin-bottom: 20px;
 }
+.create-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.create-form-header h2 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+.create-form-header p {
+  margin: 0;
+}
 #search-form {
   display: flex;
   gap: 12px;
@@ -94,6 +108,24 @@ h1 {
   border-radius: 999px;
   padding: 12px 16px;
   font-size: 16px;
+}
+#title-input, #body-input {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 15px;
+  color: var(--text);
+}
+#body-input {
+  min-height: 180px;
+  resize: vertical;
+  font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
+  line-height: 1.55;
+}
+.create-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 #limit-select, #body-mode-select, #min-score-input {
   border: 1px solid var(--line);
@@ -208,6 +240,12 @@ h1 {
   }
   #search-form {
     flex-direction: column;
+  }
+  .create-actions {
+    justify-content: stretch;
+  }
+  .create-actions button {
+    width: 100%;
   }
   .search-controls {
     flex-direction: column;

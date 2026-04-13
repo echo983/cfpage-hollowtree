@@ -356,13 +356,44 @@ async function handleSearch(request: Request, env: Env): Promise<Response> {
   });
 }
 
+async function handleCreateNote(request: Request, env: Env): Promise<Response> {
+  const session = await currentSession(request, env);
+  if (!session) return json(401, { ok: false, error: "unauthorized" });
+
+  const payload = await request.json().catch(() => null) as { title?: string; body?: string } | null;
+  const title = String(payload?.title || "").trim();
+  const body = typeof payload?.body === "string" ? payload.body.trim() : "";
+  if (!title) return json(400, { ok: false, error: "missing_title" });
+  if (!body) return json(400, { ok: false, error: "missing_body" });
+
+  const upstream = await fetch(`${env.VECDOCSRV_BASE_URL}/api/v1/text-docs`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      namespaceId: session.namespaceId,
+      title,
+      body
+    })
+  });
+  const text = await upstream.text();
+  return new Response(text, {
+    status: upstream.status,
+    headers: { "content-type": "application/json; charset=utf-8" }
+  });
+}
+
 async function handleNoteDetail(request: Request, env: Env, id: string): Promise<Response> {
   const session = await currentSession(request, env);
   if (!session) return json(401, { ok: false, error: "unauthorized" });
 
-  const upstream = await fetch(
-    `${env.VECDOCSRV_BASE_URL}/api/v1/text-docs/${encodeURIComponent(id)}?namespaceId=${encodeURIComponent(session.namespaceId)}&hydrateBody=true`
-  );
+  const upstream = await fetch(`${env.VECDOCSRV_BASE_URL}/api/v1/text-docs/${encodeURIComponent(id)}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      namespaceId: session.namespaceId,
+      hydrateBody: true
+    })
+  });
   const text = await upstream.text();
   return new Response(text, {
     status: upstream.status,
@@ -391,6 +422,9 @@ export default {
       }
       if (request.method === "POST" && url.pathname === "/api/search") {
         return handleSearch(request, env);
+      }
+      if (request.method === "POST" && url.pathname === "/api/notes") {
+        return handleCreateNote(request, env);
       }
       const noteMatch = url.pathname.match(/^\/api\/notes\/([^/]+)$/);
       if (noteMatch && request.method === "GET") {
