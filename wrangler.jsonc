@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cfpages-note-search",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-13",
+  "observability": {
+    "enabled": true
+  },
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_id": "fbab57bc-cbdf-4e8a-bdba-4665bbe265c8",
+      "database_name": "shared-auth-bindings"
+    }
+  ],
+  "vars": {
+    "VECDOCSRV_BASE_URL": "https://cfworker-vecdocsrv.edwin-abel-3.workers.dev",
+    "DEFAULT_NAMESPACE_PREFIX": "ns_user_"
+  }
+}

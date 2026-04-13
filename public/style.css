@@ -1,0 +1,122 @@
+:root {
+  --bg: #f5f0e8;
+  --panel: rgba(255, 252, 246, 0.9);
+  --line: #d9ccb8;
+  --text: #2c241c;
+  --muted: #6d6155;
+  --accent: #8f3d24;
+  --accent-2: #d56a32;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(213,106,50,0.14), transparent 30%),
+    linear-gradient(180deg, #f7f3ed, var(--bg));
+}
+.page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+.hero, .search-panel, .result-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(54, 40, 30, 0.08);
+}
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+h1 {
+  margin: 0 0 8px;
+  font-size: 34px;
+}
+.muted, .status, .meta {
+  color: var(--muted);
+}
+.auth-area {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  min-width: 260px;
+}
+.auth-box {
+  text-align: right;
+}
+.login-btn, button {
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: white;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.logout-btn {
+  margin-top: 10px;
+  background: #3f342b;
+}
+.search-panel {
+  padding: 18px;
+  margin-bottom: 20px;
+}
+#search-form {
+  display: flex;
+  gap: 12px;
+}
+#query-input {
+  flex: 1;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 12px 16px;
+  font-size: 16px;
+}
+.results {
+  display: grid;
+  gap: 16px;
+}
+.result-card {
+  padding: 20px;
+}
+.result-card h2 {
+  margin: 0 0 10px;
+  font-size: 22px;
+}
+.score-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.snippet {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+.empty {
+  padding: 28px;
+  text-align: center;
+  color: var(--muted);
+}
+@media (max-width: 720px) {
+  .hero {
+    flex-direction: column;
+  }
+  .auth-area {
+    justify-content: flex-start;
+  }
+  #search-form {
+    flex-direction: column;
+  }
+}

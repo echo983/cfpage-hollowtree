@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Note Search</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div>
+          <h1>Note Search</h1>
+          <p class="muted">Google 登录后，按当前账号绑定的 namespace 检索 `text-docs`。</p>
+        </div>
+        <div id="auth-area" class="auth-area"></div>
+      </header>
+
+      <section class="search-panel">
+        <form id="search-form">
+          <input id="query-input" name="query" type="text" placeholder="输入关键词，例如：西班牙语动词变位" autocomplete="off" />
+          <button type="submit">搜索</button>
+        </form>
+        <div id="status" class="status"></div>
+      </section>
+
+      <section id="results" class="results"></section>
+    </main>
+    <script src="/app.js" defer></script>
+  </body>
+  </html>
